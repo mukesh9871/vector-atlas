@@ -1,0 +1,13 @@
+{
+  "name": "vector-atlas",
+  "version": "1.0.0",
+  "description": "Explore text embeddings in the browser with PCA, t-SNE, UMAP and custom semantic axes.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve -l 8000 .",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": ["embeddings", "visualization", "t-sne", "umap", "pca", "nlp", "transformers.js"],
+  "license": "MIT",
+  "engines": { "node": ">=18" }
+}

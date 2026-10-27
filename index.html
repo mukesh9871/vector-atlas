@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vector Atlas: explore text embeddings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<meta name="description" content="Explore text embeddings in your browser: embed your own text with a neural model, then project it with PCA, t-SNE, UMAP or custom semantic axes.">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="6" cy="18" r="3" fill="var(--accent)"/><circle cx="18" cy="7" r="3" fill="var(--accent)" opacity=".55"/><circle cx="20" cy="19" r="2.2" fill="var(--ink)" opacity=".7"/><path d="M6 18 L18 7 M6 18 L20 19" stroke="var(--muted)" stroke-width="1.2"/></svg>
+    <h1>Vector Atlas</h1>
+  </div>
+  <p class="summary" id="summary">Loading…</p>
+  <a class="gh-link" id="sourceLink" href="https://github.com/mukesh9871/vector-atlas" target="_blank" rel="noopener">Source on GitHub</a>
+  <button class="icon-btn" id="themeBtn" aria-label="Switch light or dark theme">Theme</button>
+</header>
+
+<main class="layout">
+  <aside class="panel left" aria-label="Data and projection settings">
+    <section class="block">
+      <h2>Data</h2>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-write" aria-selected="true" aria-controls="panel-write">Your text</button>
+        <button role="tab" id="tab-import" aria-selected="false" aria-controls="panel-import">Import</button>
+        <button role="tab" id="tab-samples" aria-selected="false" aria-controls="panel-samples">Samples</button>
+      </div>
+
+      <div class="tabpanel" id="panel-write" role="tabpanel" aria-labelledby="tab-write">
+        <label class="field" for="textInput">One text per line. Start a line with [group] to give it a color.</label>
+        <textarea id="textInput" rows="10" spellcheck="false" placeholder="[pets] My dog loves long walks in the park&#10;[pets] The cat naps in a sunny window&#10;[finance] Interest rates went up again"></textarea>
+        <label class="field" for="embedMethod">Embedding method</label>
+        <select id="embedMethod">
+          <option value="neural">Neural model (meaning)</option>
+          <option value="lexical">Words and subwords (instant)</option>
+        </select>
+        <div id="modelWrap">
+          <label class="field" for="modelSel">Model</label>
+          <select id="modelSel"><option value="minilm">all-MiniLM-L6-v2, English, fast</option><option value="multilingual">Multilingual MiniLM-L12, 50+ languages</option></select>
+        </div>
+        <div id="dimWrap">
+          <label class="field" for="dimSel">Vector size</label>
+          <select id="dimSel"><option value="256">256 dimensions</option><option value="512">512 dimensions</option><option value="1024" selected>1,024 dimensions</option></select>
+        </div>
+        <p class="hint" id="methodHint"></p>
+        <div class="row">
+          <button class="btn primary" id="embedBtn">Embed and plot</button>
+          <button class="btn grow-0" id="stopEmbedBtn" hidden>Stop</button>
+        </div>
+        <p class="status" id="embedStatus" role="status"></p>
+      </div>
+
+      <div class="tabpanel" id="panel-import" role="tabpanel" aria-labelledby="tab-import" hidden>
+        <label class="field" for="vecInput">Vectors: one per line, values separated by tabs, commas or spaces. A text first field becomes the label. JSON with text, vector and group fields also works.</label>
+        <textarea id="vecInput" rows="6" spellcheck="false" placeholder="0.12&#9;-0.40&#9;0.88&#9;…&#10;0.05&#9;0.31&#9;-0.27&#9;…"></textarea>
+        <div class="file-row"><input type="file" id="vecFile" accept=".tsv,.csv,.txt,.json" aria-label="Load vectors from a file"></div>
+        <label class="field" for="metaInput">Metadata (optional): one row per vector. With two or more tab-separated columns, the first row is the header.</label>
+        <textarea id="metaInput" rows="4" spellcheck="false" placeholder="text&#9;group&#10;first sentence&#9;news&#10;second sentence&#9;sports"></textarea>
+        <div class="file-row"><input type="file" id="metaFile" accept=".tsv,.csv,.txt" aria-label="Load metadata from a file"></div>
+        <div class="row"><button class="btn primary" id="importBtn">Load vectors</button></div>
+        <p class="status" id="importStatus" role="status"></p>
+        <div id="metaCols" hidden>
+          <label class="field" for="labelCol">Label column</label>
+          <select id="labelCol"></select>
+          <label class="field" for="groupCol">Group column</label>
+          <select id="groupCol"></select>
+        </div>
+        <details>
+          <summary>Make vectors with Python</summary>
+          <p class="hint">Any model works. This example uses sentence-transformers and writes the two files this tab reads, the same format as TensorFlow’s Embedding Projector.</p>
+<pre>pip install sentence-transformers
+
+from sentence_transformers import SentenceTransformer
+texts = open("texts.txt").read().splitlines()
+model = SentenceTransformer("all-MiniLM-L6-v2")
+vecs = model.encode(texts, normalize_embeddings=True)
+
+with open("vectors.tsv", "w") as f:
+    for v in vecs:
+        f.write("\t".join(f"{x:.5f}" for x in v) + "\n")
+with open("metadata.tsv", "w") as f:
+    f.write("\n".join(t.replace("\t", " ") for t in texts))</pre>
+        </details>
+      </div>
+
+      <div class="tabpanel" id="panel-samples" role="tabpanel" aria-labelledby="tab-samples" hidden>
+        <button class="sample" data-sample="concepts"><strong>Concept words</strong><span>146 words in 8 families with ready-made 48-dimension vectors. Loads instantly.</span></button>
+        <button class="sample" data-sample="topics"><strong>Sentences on six topics</strong><span>60 sentences about space, cooking, football, money, health and music. Opens in “Your text”, ready to embed.</span></button>
+        <button class="sample" data-sample="reviews"><strong>App reviews</strong><span>24 reviews labeled praise, complaint or request. Good for seeing tone and intent.</span></button>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Projection</h2>
+      <div class="seg" id="methodSeg" role="group" aria-label="Projection method">
+        <button data-m="pca" aria-pressed="true">PCA</button>
+        <button data-m="tsne" aria-pressed="false">t-SNE</button>
+        <button data-m="umap" aria-pressed="false">UMAP</button>
+        <button data-m="custom" aria-pressed="false">Custom</button>
+      </div>
+      <div class="seg" id="dimSeg" role="group" aria-label="Number of dimensions">
+        <button data-d="2" aria-pressed="false">2D</button>
+        <button data-d="3" aria-pressed="true">3D</button>
+      </div>
+
+      <div id="opt-pca"><p class="hint" id="pcaVar"></p></div>
+
+      <div id="opt-tsne" hidden>
+        <div class="range-label"><label for="perp">Perplexity</label><output id="perpOut">20</output></div>
+        <input type="range" id="perp" min="2" max="100" value="20">
+        <div class="range-label"><label for="lr">Learning rate</label><output id="lrOut">10</output></div>
+        <input type="range" id="lr" min="1" max="100" value="10">
+        <p class="hint">Perplexity is roughly how many neighbors each point pays attention to.</p>
+      </div>
+
+      <div id="opt-umap" hidden>
+        <div class="range-label"><label for="nn">Neighbors</label><output id="nnOut">15</output></div>
+        <input type="range" id="nn" min="2" max="60" value="15">
+        <div class="range-label"><label for="md">Minimum distance</label><output id="mdOut">0.10</output></div>
+        <input type="range" id="md" min="0" max="0.99" step="0.01" value="0.1">
+        <p class="hint">Fewer neighbors keeps local detail; more neighbors keeps the big picture.</p>
+      </div>
+
+      <div id="opt-custom" hidden>
+        <p class="hint" id="customHint">Pick what each end of an axis means. Points slide toward the end they resemble most.</p>
+        <label class="field">Horizontal axis</label>
+        <div class="row" style="margin-top:0"><input type="text" id="xl" placeholder="Left end" aria-label="Left end of horizontal axis"><input type="text" id="xr" placeholder="Right end" aria-label="Right end of horizontal axis"></div>
+        <label class="field">Vertical axis (optional)</label>
+        <div class="row" style="margin-top:0"><input type="text" id="yd" placeholder="Bottom end" aria-label="Bottom end of vertical axis"><input type="text" id="yu" placeholder="Top end" aria-label="Top end of vertical axis"></div>
+        <div class="row"><button class="btn primary" id="applyAxes">Apply axes</button></div>
+        <p class="status" id="customStatus" role="status"></p>
+      </div>
+      <div class="row" id="rerunRow" hidden><button class="btn" id="rerunBtn">Restart layout</button><button class="btn" id="pauseBtn">Pause</button></div>
+    </section>
+
+    <section class="block">
+      <h2>Display</h2>
+      <label class="field" for="colorBy">Color points by</label>
+      <select id="colorBy"><option value="group">Group</option><option value="cluster">Clusters found automatically</option><option value="none">One color</option></select>
+      <div id="kWrap" hidden>
+        <div class="range-label"><label for="kSel">Number of clusters</label><output id="kOut">6</output></div>
+        <input type="range" id="kSel" min="2" max="12" value="6">
+      </div>
+      <div class="range-label"><label for="psize">Point size</label><output id="psizeOut">5</output></div>
+      <input type="range" id="psize" min="2" max="12" value="5">
+      <label class="check"><input type="checkbox" id="allLabels"> Show labels on all points</label>
+      <label class="check"><input type="checkbox" id="autoRotate" checked> Spin slowly in 3D</label>
+    </section>
+
+    <section class="block" id="exportBlock">
+      <h2>Export</h2>
+      <div class="row" style="margin-top:0"><button class="btn small" id="expVec">Vectors as JSON</button><button class="btn small" id="expXY">Coordinates as CSV</button></div>
+      <p class="status" id="exportStatus" role="status"></p>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Embedding plot">
+    <canvas id="plot" tabindex="0" aria-label="Interactive point cloud. Drag to rotate or pan, scroll to zoom, click a point to see its neighbors."></canvas>
+    <div class="hud" id="hud"></div>
+    <div class="stage-ctrl">
+      <button class="btn small" id="isolateBtn" aria-pressed="false" disabled>Show only neighbors</button>
+      <button class="btn small" id="resetBtn">Reset view</button>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="progress" id="progress" hidden><span id="progressText"></span></div>
+    <div class="tip" id="tip" hidden></div>
+    <div class="empty" id="empty" hidden><p>Add text, import vectors or open a sample to start.</p></div>
+  </section>
+
+  <aside class="panel right" aria-label="Search and inspect">
+    <section class="block">
+      <h2>Search</h2>
+      <input type="search" id="search" placeholder="Find points by text or group" aria-label="Find points">
+      <p class="hint" id="searchInfo"></p>
+      <ul class="list" id="searchList"></ul>
+    </section>
+    <section class="block">
+      <h2>Nearest to new text</h2>
+      <div class="row" style="margin-top:0"><input type="text" id="queryInput" placeholder="Type any text" aria-label="New text"><button class="btn grow-0" id="queryBtn">Find</button></div>
+      <p class="hint" id="queryHint"></p>
+      <ul class="list" id="queryList"></ul>
+    </section>
+    <section class="block">
+      <h2>Selected point</h2>
+      <div id="selCard"><p class="hint" style="margin:0">Click a point to see its nearest neighbors in the original space.</p></div>
+      <div id="nbControls" hidden>
+        <div class="row">
+          <select id="metric" aria-label="Distance measure"><option value="cosine">Cosine similarity</option><option value="euclid">Euclidean distance</option></select>
+        </div>
+        <div class="range-label"><label for="kn">Neighbors</label><output id="knOut">10</output></div>
+        <input type="range" id="kn" min="3" max="40" value="10">
+      </div>
+      <ul class="list" id="nbList"></ul>
+    </section>
+  </aside>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/umap-js@1.4.0/lib/umap-js.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
